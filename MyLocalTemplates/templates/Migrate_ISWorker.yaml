@@ -1,0 +1,229 @@
+alias: Migrate_IS
+description: Migrate SPM and IS layers on Linux
+version: 1.0
+
+environments:
+  default:                                  # defaults
+    # product and fix repositories
+    repo.product: ${}                       # source product repository name, must be pre-registered
+    repo.spm:     ${repo.product}           # source product repo for SPM
+
+    repo.fix:     ${}                       # source fix repository name, must be pre-registered
+    repo.fix.spm: ${repo.fix}               # source fix repo for SPM
+
+    # Remote system configuration 
+    os.platform:  W64                  # remote machine OS platform code
+    #os.username:  ${user.name}              # remote machine SSH username, default CCE process user account (as java system property)
+    #os.auth.method: CERTIFICATE             # remote machine authentication method: PASSWORD,INTERACTIVE,CERTIFICATE
+    #os.auth.key:  ${user.home}/.ssh/id_rsa             # default keyfile for CERTIFICATE auth method
+    #os.port:      22                        # remote machine SSH port
+    install.dir:  C:/SAG105           # suite installation directory
+
+    # SPM specific parameters
+    spm.port:       ${}                     # SPM connection port
+    spm.secure:     ${}                     # Use HTTPS connection to SPM: true,false
+    spm.https.port: ${}                     # SPM HTTPS connection port
+    spm.memory.max: ${}                     # spm max mem
+    spm.configure:  ${}                     # spm templates to apply
+    spm.fixes:      ${}                     # SPM/SUM/SD core fixes by default
+    spm.distribution: ${}                   # EXPERIMENTAL! distribution, ALL, DEF, MIN
+    spm.useImage:     true                  # EXPERIMENTAL! false for direct connection to the MASTER repo!
+    spm.host1:       ${}                    # REQUIRED for all in one installation as default host
+    sb.configure:   ${}                     # REQUIRED for Shared Platform installation
+    sb.fixes:      ${}                      # SB fixes
+    
+    #db.url:              "jdbc:wm:${db.type}://${db.host}:${db.port};serviceName=${db.serviceName}"
+    
+    # Integration Server. See is-layer template for parameters documentation
+    is.host1:             ${}               # IS hostname
+    is.instance.name:    ${}                # IS instance name
+    is.primary.port:     ${}                # IS primary port number
+    is.diagnostic.port:  ${}                # IS diagnostic port number
+    is.install.service:  ${}                # installation in windows or not
+    is.memory.init:      ${}                # memory configuration
+    is.memory.max:       ${}                # memory configuration
+    is.fixes:            ${}                # IS fixes
+    is.configure:        ${}                # IS layer templates to provision
+    is.license.key.alias: ${}  # REQUIRED: IS license key
+
+    # CCE specific parameters
+    cc.installer:  ${}
+
+  qa:
+    spm.alias1:    ${}                       # alias
+
+###
+# Layers - groups of identically setup nodes to perform specific role
+# within this environment
+###
+layers:
+  default:                                  # default configuration for all layers
+    productRepo: ${repo.product}            # repo to install products from
+    fixRepo:     ${repo.fix}                # repo to install fixes from
+
+  spm:
+    description: Management layer of SPM
+    fixRepo:     ${repo.fix.spm}            # repo to install fixes from
+    templates:   ${spm.configure}           # spm templates to provision
+
+  sb:
+    description: Shared Platform
+    templates:   ${sb.configure}
+  is:
+    description: Integration Server
+    templates:   ${is.configure}               # is-layer templates to provision
+
+
+###
+# Inline templates - customized product list, fix list, runtime instances, files and configuration
+###
+templates:
+
+ # Platform Manager
+  spm-tuneup:
+    description: SPM customizations
+    fixes:       ${spm.fixes}
+    products:
+      SPM:
+      # super set of all plugins
+      BAMMWSspm:
+      EDAspm:
+      ISspm:
+      MWSspm:
+      MwsSpmIsTask:
+      MwsSpmTaskEngine:
+      NUMspm:
+      optimizeAnalysisSPM:
+      OTNspm:
+      PLSspm:
+      TESspm:
+      TNSspm:
+      WARspm:
+      WIDspm:
+      WMNspm:
+      WOKMWSspm:
+      WOKspm:
+      WSDCspm:
+      
+ # Platform Manager plugins
+  spm-plugins-tuneup:
+    description: SPM customizations
+    products:      
+      ISspm:                  #Infrastructure | Platform Manager Plug-ins | Integration Server | Server
+
+ # Shared Bundles & Libraries at Infrastructure level
+  sharedbundles:
+    description: Shared Platform provision
+    fixes:   ${sb.fixes}
+    products:
+      SSX_TLS:
+      CAFRLib:
+      WSIddj:
+      SCGCommon:
+      ISSharedBundles:
+      TPSddj:
+      TPS:
+      CustomInstall:
+      WISSharedLibs:
+      DesignerSharedLib:
+      WSSCore:
+      sjp:
+      jsw:
+      integrationServerMigrationFrameworkLib:
+      MWSSharedLib:
+
+ # Integration Server - Customization
+  is-server:
+    description: IS layer can be single server or a cluster
+    licenses:
+      "IntegrationServer/instances/${is.instance.name}/config/licenseKey.xml": ${is.license.key.alias}
+    fixes: ${is.fixes}
+    products:
+      Monitor:
+      salesforce:
+      jdbcAdapter:
+      EventTypeCommon:
+      PIECore:
+      sjp:
+      PIEContainerCommonDirectoryService:
+      PIEContainerExternalRDBMS:
+      Deployer:
+      NUMDeployer:
+      LogUtil:
+      GWM_IS:
+      wmprt:
+      WPEDesigner:
+      PIEAssetPublisher:
+      TNServer:
+      integrationServer: # the core IS product that owns the instance
+         ${is.instance.name}:
+            src.instance.name: ${is.src.instance.name}
+            license.file:    IntegrationServer/instances/${is.instance.name}/config/licenseKey.xml
+            install.service: ${is.install.service}
+            package.list:   ${is.packages.list}            
+
+###
+# Migration section
+###
+  sourceType: ${migration.source.type}              #The source type to use for migration. Valid values: NODES|ARCHIVES
+  archives:  
+   targetPath: ${source.archivezip.path}        #Migration Source Zip File Path
+  options:                       #Options to prepare the source node for migration.
+    snapshot:                    
+      execute: false              #Executes the "create" template. Valid values: true|false
+    shutdown:                    #Stop all source runtime components, including Platform Manager.
+      execute: true              #Executes "stop" lifecycle operation. Valid values: true|false
+    backup:                      #Indicates whether to create a backup of the source installation directory
+      execute: false      
+    rename:                      #Indicates whether to rename the source installation directory.
+      execute: false
+  source:                        #A map of layers to source nodes.
+    qa:                         
+      spm: ["${spm.alias1}"]      #A list of source node aliases for spm
+      sb: ["${spm.alias1}"]       #A list of source node aliases for sb
+      is: ["${spm.alias1}"]       #A list of source node aliases for is
+  nodes:                                #Source Nodes details
+    default:
+     default:                               #Source installation SPM details
+      port:   ${spm.src.https.port}         #Source SPM port
+      secure: ${spm.secure}
+      bootstrapInfo:
+        installDir:   ${src.install.dir}    #Source SPM Install directory 
+        port:         ${os.port}            #Source SPM OS port
+        credentials:                        #Source SPM SSH connectivity details
+          userName:   ${os.username}
+          authenticationMethod: ${os.auth.method}
+          privateKey: ${os.auth.key}
+
+
+###
+# Provisioning map of layers to nodes for each environment type
+###
+provision:
+  qa:
+    spm:   ["${spm.alias1}"]
+    sb:    ["${spm.alias1}"]
+    is:    ["${spm.alias1}"]
+    
+
+###
+# Nodes -Having details about target node's SPM bootstrap details,specific to each environment types
+###
+nodes:
+  default:
+    default:
+      port:   ${spm.https.port}
+      secure: ${spm.secure}
+      bootstrapInfo:
+        installer:    ${cc.installer}
+        installDir:   ${install.dir}
+        distribution: ${spm.distribution}
+        useImage:     ${spm.useImage}
+        port:         ${os.port}
+        credentials:
+          userName:   ${os.username}
+          authenticationMethod: ${os.auth.method}
+          privateKey: ${os.auth.key}
+  qa:
+    ${spm.alias1}:
+      host: ${spm.host1}
