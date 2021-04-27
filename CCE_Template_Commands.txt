@@ -1,0 +1,3 @@
+sagcc exec templates composite import -i "C:\CC5\templates\sag-um-server\template_installdir.yaml" overwrite=true
+sagcc exec templates composite validate sag-um-server-installdir -i "C:\CC5\templates\sag-um-server\env_installdir.properties"
+sagcc exec templates composite apply sag-um-server-installdir -i "C:\CC5\templates\sag-um-server\env_installdir.properties"
